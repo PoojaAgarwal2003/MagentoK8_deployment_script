@@ -1,0 +1,193 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "adminUsername": {
+        "type": "string",
+        "metadata": {
+          "description": "Username for the VM administrator"
+        }
+      },
+      "adminPassword": {
+        "type": "securestring",
+        "metadata": {
+          "description": "Password for the VM administrator"
+        }
+      },
+      "dnsNameForPublicIP": {
+        "type": "string",
+        "defaultValue": "youruniquednsname12345",
+        "metadata": {
+          "description": "Unique DNS name for the public IP address of the VM"
+        }
+      },
+      "vmSize": {
+        "type": "string",
+        "defaultValue": "Standard_DS1_v2",
+        "metadata": {
+          "description": "Size of the VM"
+        }
+      }
+    },
+    "variables": {
+      "location": "[resourceGroup().location]",
+      "nicName": "myVMNic",
+      "publicIPAddressName": "myPublicIP",
+      "virtualNetworkName": "myVNET",
+      "subnetName": "mySubnet",
+      "addressPrefix": "10.0.0.0/16",
+      "subnetPrefix": "10.0.0.0/24",
+      "imagePublisher": "Canonical",
+      "imageOffer": "UbuntuServer",
+      "imageSku": "18.04-LTS",
+      "extensionName": "customScript",
+      "extensionType": "CustomScript",
+      "scriptName": "install_mysql.sh",
+      "vmName": "myVM",
+      "storageAccountName": "[concat('bootdiag', uniqueString(resourceGroup().id))]"
+    },
+    "resources": [
+      {
+        "type": "Microsoft.Network/publicIPAddresses",
+        "apiVersion": "2021-02-01",
+        "name": "[variables('publicIPAddressName')]",
+        "location": "[variables('location')]",
+        "properties": {
+          "publicIPAllocationMethod": "Dynamic",
+          "dnsSettings": {
+            "domainNameLabel": "[parameters('dnsNameForPublicIP')]"
+          }
+        }
+      },
+      {
+        "type": "Microsoft.Network/virtualNetworks",
+        "apiVersion": "2021-02-01",
+        "name": "[variables('virtualNetworkName')]",
+        "location": "[variables('location')]",
+        "properties": {
+          "addressSpace": {
+            "addressPrefixes": [
+              "[variables('addressPrefix')]"
+            ]
+          },
+          "subnets": [
+            {
+              "name": "[variables('subnetName')]",
+              "properties": {
+                "addressPrefix": "[variables('subnetPrefix')]"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "Microsoft.Network/networkInterfaces",
+        "apiVersion": "2021-02-01",
+        "name": "[variables('nicName')]",
+        "location": "[variables('location')]",
+        "dependsOn": [
+          "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddressName'))]",
+          "[resourceId('Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]"
+        ],
+        "properties": {
+          "ipConfigurations": [
+            {
+              "name": "ipconfig1",
+              "properties": {
+                "privateIPAllocationMethod": "Dynamic",
+                "publicIPAddress": {
+                  "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddressName'))]"
+                },
+                "subnet": {
+                  "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), variables('subnetName'))]"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "Microsoft.Storage/storageAccounts",
+        "apiVersion": "2019-06-01",
+        "name": "[variables('storageAccountName')]",
+        "location": "[variables('location')]",
+        "sku": {
+          "name": "Standard_LRS"
+        },
+        "kind": "StorageV2",
+        "properties": {
+          "supportsHttpsTrafficOnly": true
+        }
+      },
+      {
+        "type": "Microsoft.Compute/virtualMachines",
+        "apiVersion": "2021-04-01",
+        "name": "[variables('vmName')]",
+        "location": "[variables('location')]",
+        "dependsOn": [
+          "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]",
+          "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+        ],
+        "properties": {
+          "hardwareProfile": {
+            "vmSize": "[parameters('vmSize')]"
+          },
+          "osProfile": {
+            "computerName": "[variables('vmName')]",
+            "adminUsername": "[parameters('adminUsername')]",
+            "adminPassword": "[parameters('adminPassword')]"
+          },
+          "storageProfile": {
+            "imageReference": {
+              "publisher": "[variables('imagePublisher')]",
+              "offer": "[variables('imageOffer')]",
+              "sku": "[variables('imageSku')]",
+              "version": "latest"
+            },
+            "osDisk": {
+              "createOption": "FromImage"
+            }
+          },
+          "networkProfile": {
+            "networkInterfaces": [
+              {
+                "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+              }
+            ]
+          },
+          "diagnosticsProfile": {
+            "bootDiagnostics": {
+              "enabled": true,
+              "storageUri": "[reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2019-06-01').primaryEndpoints.blob]"
+            }
+          }
+        }
+      },
+      {
+        "type": "Microsoft.Compute/virtualMachines/extensions",
+        "apiVersion": "2021-04-01",
+        "name": "[concat(variables('vmName'), '/', variables('extensionName'))]",
+        "location": "[variables('location')]",
+        "dependsOn": [
+          "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
+        ],
+        "properties": {
+          "publisher": "Microsoft.Azure.Extensions",
+          "type": "CustomScript",
+          "typeHandlerVersion": "2.0",
+          "settings": {
+            "fileUris": [
+              "https://<your-storage-account>.blob.core.windows.net/<your-container>/install_mysql.sh"
+            ]
+          },
+          "protectedSettings": {
+            "commandToExecute": "[concat('bash ', variables('scriptName'))]"
+          }
+        }
+      }
+    ]
+  }
+  
+
+
+https://mysql26092005storage.blob.core.windows.net/mysqlinstall/install_mysql.sh?sp=r&st=2024-06-10T14:58:42Z&se=2024-06-10T22:58:42Z&spr=https&sv=2022-11-02&sr=b&sig=pnMwgHQRFa57zMHXFxTA8MFrwf%2BgieLh3qBf3GnTuuc%3D
