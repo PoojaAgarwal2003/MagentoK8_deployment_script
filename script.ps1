@@ -5,35 +5,6 @@ $AZURE_STORAGE_ACCOUNT_KEY = "vK+oTd2AlxG5WTWWSMGHb/owJmzgPeHpRo+K3Y7cw4U4hv9SnM
 $FLEX_SERVER_USER = "pooja"
 $FLEX_SERVER_PASSWORD = "Pooja@1234"
 
-# Base64 encode secrets
-$FLEX_SERVER_NAME_ENCODED = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($FLEX_SERVER_NAME))
-$AZURE_STORAGE_ACCOUNT_NAME_ENCODED = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($AZURE_STORAGE_ACCOUNT_NAME))
-$AZURE_STORAGE_ACCOUNT_KEY_ENCODED = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($AZURE_STORAGE_ACCOUNT_KEY))
-$FLEX_SERVER_USER_ENCODED = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($FLEX_SERVER_USER))
-$FLEX_SERVER_PASSWORD_ENCODED = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($FLEX_SERVER_PASSWORD))
-
-# Create YAML content for the secret
-$secretYamlContent = @"
-apiVersion: v1
-kind: Secret
-metadata:
-  name: flex-server-credentials
-type: Opaque
-data:
-  FLEX_SERVER_NAME: $FLEX_SERVER_NAME_ENCODED
-  AZURE_STORAGE_ACCOUNT_NAME: $AZURE_STORAGE_ACCOUNT_NAME_ENCODED
-  AZURE_STORAGE_ACCOUNT_KEY: $AZURE_STORAGE_ACCOUNT_KEY_ENCODED
-  FLEX_SERVER_USER: $FLEX_SERVER_USER_ENCODED
-  FLEX_SERVER_PASSWORD: $FLEX_SERVER_PASSWORD_ENCODED
-"@
-
-# Write the secret YAML content to a file
-$secretYamlFilePath = "flex-server-credentials.yaml"
-$secretYamlContent | Out-File -FilePath $secretYamlFilePath -Encoding utf8
-
-# Apply the secret YAML file to create the secret in Kubernetes
-kubectl apply -f $secretYamlFilePath
-
 # Define other YAML configurations
 $elasticSearchServiceYaml = @"
 apiVersion: v1
